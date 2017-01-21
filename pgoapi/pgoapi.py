@@ -167,7 +167,7 @@ class PGoApi:
         time.sleep(1.356)
 
         request = self.create_request()
-        request.download_remote_config_version(platform=1, app_version=4500)
+        request.download_remote_config_version(platform = 1, app_version = 5301)
         request.check_challenge()
         request.get_hatched_eggs()
         request.get_inventory()
