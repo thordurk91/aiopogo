@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/tejado/pgoapi.svg?branch=master)](https://travis-ci.org/tejado/pgoapi)
+[![Build Status](https://travis-ci.org/Noctem/pgoapi.svg?branch=develop)](https://travis-ci.org/Noctem/pgoapi)
 
 # pgoapi - a pokemon go api lib in python
 pgoapi is a client/api/demo for Pokemon Go by https://github.com/tejado.  
