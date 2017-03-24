@@ -1,6 +1,7 @@
-from aiohttp import ProxyConnectionError
-from asyncio import TimeoutError
-
+try:
+    from aiosocks.errors import SocksError
+except ImportError:
+    class SocksError(Exception): pass
 
 class AiopogoError(Exception):
     """Any custom exception in this module"""
@@ -8,10 +9,10 @@ class AiopogoError(Exception):
 class HashServerException(AiopogoError):
     """Parent class of all hashing server errors"""
 
-class ProxyException(ProxyConnectionError):
+class ProxyException(AiopogoError):
     """Raised when there is an error connecting to a proxy server."""
 
-class TimeoutException(AiopogoError, TimeoutError):
+class TimeoutException(AiopogoError):
     """Raised when a request times out."""
 
 

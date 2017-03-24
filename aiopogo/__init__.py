@@ -3,7 +3,7 @@ from .exceptions import PleaseInstallProtobufVersion3
 import logging
 
 __title__ = 'aiopogo'
-__version__ = '1.5.2'
+__version__ = '1.6.0'
 __author__ = 'David Christenson'
 __license__ = 'MIT License'
 __copyright__ = 'Copyright (c) 2017 David Christenson <https://github.com/Noctem>'
@@ -21,12 +21,12 @@ if int(protobuf_version[:1]) < 3:
     raise PleaseInstallProtobufVersion3('Protobuf 3 needed, you have {}'.format(protobuf_version))
 
 from .pgoapi import PGoApi
-from .rpc_api import RpcApi, RPC_SESSIONS
+from .rpc_api import RpcApi
 from .auth import Auth
 from .hash_server import HashServer
 
 def close_sessions():
-    RPC_SESSIONS.close()
+    RpcApi.sessions.close()
     HashServer.close_session()
 
 def activate_hash_server(hash_token, conn_limit=300):
