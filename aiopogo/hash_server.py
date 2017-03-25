@@ -8,22 +8,13 @@ from struct import pack, unpack
 
 from aiohttp import ClientSession, ClientError, ClientResponseError, ServerTimeoutError
 
+from . import json_dumps, json_loads
 from .exceptions import ExpiredHashKeyException, HashingOfflineException, HashingQuotaExceededException, HashingTimeoutException, MalformedHashResponseException, NoHashKeyException, TempHashingBanException, TimeoutException, UnexpectedHashResponseException
 from .connector import TimedConnector
 from .utilities import f2i
 
-try:
-    from ujson import loads as json_loads
-
-    jexc = (ValueError,)
-except ImportError:
-    from json import JSONDecodeError, loads as json_loads
-
-    jexc = (JSONDecodeError, ValueError)
-
 
 class HashServer:
-    endpoint = "http://pokehash.buddyauth.com/api/v127_4/hash"
     _session = None
     multi = False
     loop = get_event_loop()
@@ -48,6 +39,7 @@ class HashServer:
                 else:
                     self.log.info('Out of hashes, waiting for new period.')
                     await sleep(status['refresh'] - time() + 1, loop=self.loop)
+                    break
         except KeyError:
             pass
         headers = {'X-AuthToken': self.instance_token}
@@ -64,10 +56,10 @@ class HashServer:
 
         # request hashes from hashing server
         try:
-            async with self._session.post(self.endpoint, headers=headers, json=payload) as resp:
+            async with self._session.post("http://pokehash.buddyauth.com/api/v127_4/hash", headers=headers, json=payload) as resp:
                 try:
                     response = await resp.json(encoding='ascii', loads=json_loads)
-                except jexc as e:
+                except ValueError as e:
                     raise MalformedHashResponseException('Unable to parse JSON from hash server.') from e
                 headers = resp.headers
         except ClientResponseError as e:
@@ -129,12 +121,13 @@ class HashServer:
         conn = TimedConnector(loop=cls.loop,
                               limit=conn_limit,
                               verify_ssl=False,
-                              keepalive_timeout=10.0)
+                              keepalive_timeout=12.0)
         cls._session = ClientSession(connector=conn,
                                      loop=cls.loop,
                                      headers=headers,
                                      raise_for_status=True,
-                                     conn_timeout=6)
+                                     conn_timeout=6.5,
+                                     json_serialize=json_dumps)
 
     @classmethod
     def close_session(cls):

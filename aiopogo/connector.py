@@ -2,27 +2,6 @@ from aiohttp import helpers, payload
 from aiohttp.connector import Connection, TCPConnector, _TransportPlaceholder
 from aiohttp import ClientConnectorError
 
-try:
-    from ujson import dumps as json_dumps
-
-    jargs = {'escape_forward_slashes': False}
-except ImportError:
-    from json import dumps as json_dumps
-    from .utilities import JSONByteEncoder
-
-    jargs = {'cls': JSONByteEncoder}
-
-
-class JsonPayload(payload.BytesPayload):
-    def __init__(self, value,
-                 encoding='utf-8', content_type='application/json',
-                 dumps=None, *args, **kwargs):
-        super().__init__(
-            json_dumps(value, **jargs).encode(encoding),
-            content_type=content_type, encoding=encoding, *args, **kwargs)
-
-payload.JsonPayload = JsonPayload
-
 
 class TimedConnection(Connection):
     def __init__(self, *args, time=None, **kwargs):

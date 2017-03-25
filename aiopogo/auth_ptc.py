@@ -1,21 +1,14 @@
 from urllib.parse import parse_qs, urlsplit
 from asyncio import get_event_loop, TimeoutError
 from time import time
+from functools import partial
 
 from aiohttp import TCPConnector, ClientSession, ClientError, ClientHttpProxyError, ClientProxyConnectionError, ClientResponseError, ServerTimeoutError
 
+from . import json_loads
 from .session import socks_connector
 from .auth import Auth
 from .exceptions import ActivationRequiredException, AuthConnectionException, AuthException, AuthTimeoutException, InvalidCredentialsException, ProxyException, SocksError, TimeoutException
-
-try:
-    from ujson import loads as json_loads
-
-    jexc = (ValueError,)
-except ImportError:
-    from json import JSONDecodeError, loads as json_loads
-
-    jexc = (JSONDecodeError, ValueError)
 
 class AuthPtc(Auth):
     loop = get_event_loop()
@@ -28,25 +21,19 @@ class AuthPtc(Auth):
         self._password = password
 
         if proxy and proxy.startswith('socks'):
-            conn = socks_connector(self.socks_proxy, loop=self.loop)
+            self.conn = partial(socks_connector, proxy=proxy, loop=self.loop)
             self.proxy = None
         else:
-            conn = TCPConnector(loop=self.loop, verify_ssl=False)
+            self.conn = partial(TCPConnector, loop=self.loop, verify_ssl=False)
             self.proxy = proxy
 
-        self.session_args = {
-            'connector': conn,
-            'loop': self.loop,
-            'headers': (('User-Agent', user_agent or 'pokemongo/0 CFNetwork/758.5.3 Darwin/15.6.0'),),
-            'raise_for_status': True,
-            'conn_timeout': 10,
-            'read_timeout': timeout or 10
-        }
-
-    def close_session(self):
-        if self._session.closed:
-            return
-        self._session.close()
+        self.session = partial(
+            ClientSession,
+            loop=self.loop,
+            headers=(('User-Agent', user_agent or 'pokemongo/0 CFNetwork/758.5.3 Darwin/15.6.0'),),
+            raise_for_status=True,
+            conn_timeout=5.0,
+            read_timeout=timeout or 10.0)
 
     async def user_login(self, username=None, password=None, retry=True):
         self._username = username or self._username
@@ -60,9 +47,9 @@ class AuthPtc(Auth):
         try:
             now = time()
             login_url = 'https://sso.pokemon.com/sso/oauth2.0/authorize?client_id=mobile-app_pokemon-go&redirect_uri=https%3A%2F%2Fwww.nianticlabs.com%2Fpokemongo%2Ferror&locale=en'
-            async with ClientSession(**self.session_args) as session:
+            async with self.session(connector=self.conn()) as session:
                 async with session.get(login_url, proxy=self.proxy) as resp:
-                    data = await resp.json(encoding='utf-8', loads=json_loads, content_type='text/html')
+                    data = await resp.json(encoding='utf-8', loads=json_loads, content_type=None)
 
                 assert 'lt' in data
                 data['_eventId'] = 'submit'
@@ -78,7 +65,7 @@ class AuthPtc(Auth):
                     except (KeyError, AttributeError, TypeError, IndexError):
                         try:
                             j = await resp.json(encoding='utf-8', loads=json_loads)
-                        except jexc as e:
+                        except ValueError as e:
                             raise AuthException('Unable to decode second response.') from e
                         try:
                             if j.get('error_code') == 'users.login.activation_required':
@@ -95,7 +82,7 @@ class AuthPtc(Auth):
             raise AuthTimeoutException('user_login timeout.') from e
         except ClientError as e:
             raise AuthConnectionException('{} during user_login.'.format(e.__class__.__name__)) from e
-        except (AssertionError, TypeError) + jexc as e:
+        except (AssertionError, TypeError, ValueError) as e:
             raise AuthException('Invalid initial JSON response.') from e
 
         if self._access_token:
@@ -126,7 +113,7 @@ class AuthPtc(Auth):
             }
 
             try:
-                async with ClientSession(**self.session_args) as session:
+                async with self.session(connector=self.conn()) as session:
                     async with session.post('https://sso.pokemon.com/sso/oauth2.0/accessToken', data=data, proxy=self.proxy) as resp:
                         self._refresh_token = None
                         qs = await resp.text()
