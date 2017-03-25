@@ -59,7 +59,7 @@ class AuthPtc(Auth):
         self._access_token = None
         try:
             now = time()
-            login_url = 'https://sso.pokemon.com/sso/login?service=https%3A%2F%2Fsso.pokemon.com%2Fsso%2Foauth2.0%2FcallbackAuthorize'
+            login_url = 'https://sso.pokemon.com/sso/oauth2.0/authorize?client_id=mobile-app_pokemon-go&redirect_uri=https%3A%2F%2Fwww.nianticlabs.com%2Fpokemongo%2Ferror&locale=en'
             async with ClientSession(**self.session_args) as session:
                 async with session.get(login_url, proxy=self.proxy) as resp:
                     data = await resp.json(encoding='utf-8', loads=json_loads, content_type='text/html')
@@ -69,6 +69,7 @@ class AuthPtc(Auth):
                 data['username'] = self._username
                 data['password'] = self._password
 
+                login_url = 'https://sso.pokemon.com/sso/login?service=https%3A%2F%2Fsso.pokemon.com%2Fsso%2Foauth2.0%2FcallbackAuthorize&locale=en'
                 async with session.post(login_url, data=data, proxy=self.proxy, allow_redirects=False) as resp:
                     try:
                         qs = parse_qs(urlsplit(resp.headers['Location'])[3])
@@ -76,7 +77,7 @@ class AuthPtc(Auth):
                         self._access_token = resp.cookies['CASTGC'].value
                     except (KeyError, AttributeError, TypeError, IndexError):
                         try:
-                            j = await resp.json(loads=json_loads)
+                            j = await resp.json(encoding='utf-8', loads=json_loads)
                         except jexc as e:
                             raise AuthException('Unable to decode second response.') from e
                         try:

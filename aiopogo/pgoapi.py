@@ -77,7 +77,7 @@ class PGoApi:
 
     @property
     def start_time(self):
-        return self._state.start_time
+        return self.state.start_time
 
     def __getattr__(self, func):
         async def function(**kwargs):
