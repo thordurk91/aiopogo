@@ -14,7 +14,7 @@ setup(name='aiopogo',
           'gpsoauth>=0.4.0',
           'protobuf3-to-dict>=0.1.4',
           'aiohttp==1.3.*',
-          'pycrypt>=0.2.0',
+          'pycrypt>=0.5.0',
           'pogeo>=0.2.0'],
       extras_require={'ujson': ['ujson']},
       classifiers=[
