@@ -47,33 +47,34 @@ class AuthPtc(Auth):
         try:
             now = time()
             login_url = 'https://sso.pokemon.com/sso/oauth2.0/authorize?client_id=mobile-app_pokemon-go&redirect_uri=https%3A%2F%2Fwww.nianticlabs.com%2Fpokemongo%2Ferror&locale=en'
-            async with self.session(connector=self.conn()) as session:
-                async with session.get(login_url, proxy=self.proxy) as resp:
-                    data = await resp.json(encoding='utf-8', loads=json_loads, content_type=None)
+            with self.conn() as conn:
+                async with self.session(connector=conn) as session:
+                    async with session.get(login_url, proxy=self.proxy) as resp:
+                        data = await resp.json(encoding='utf-8', loads=json_loads, content_type=None)
 
-                assert 'lt' in data
-                data['_eventId'] = 'submit'
-                data['username'] = self._username
-                data['password'] = self._password
+                    assert 'lt' in data
+                    data['_eventId'] = 'submit'
+                    data['username'] = self._username
+                    data['password'] = self._password
 
-                login_url = 'https://sso.pokemon.com/sso/login?service=https%3A%2F%2Fsso.pokemon.com%2Fsso%2Foauth2.0%2FcallbackAuthorize&locale=en'
-                async with session.post(login_url, data=data, proxy=self.proxy, allow_redirects=False) as resp:
-                    try:
-                        qs = parse_qs(urlsplit(resp.headers['Location'])[3])
-                        self._refresh_token = qs['ticket'][0]
-                        self._access_token = resp.cookies['CASTGC'].value
-                    except (KeyError, AttributeError, TypeError, IndexError):
+                    login_url = 'https://sso.pokemon.com/sso/login?service=https%3A%2F%2Fsso.pokemon.com%2Fsso%2Foauth2.0%2FcallbackAuthorize&locale=en'
+                    async with session.post(login_url, data=data, proxy=self.proxy, allow_redirects=False) as resp:
                         try:
-                            j = await resp.json(encoding='utf-8', loads=json_loads, content_type=None)
-                        except ValueError as e:
-                            raise AuthException('Unable to decode second response.') from e
-                        try:
-                            if j.get('error_code') == 'users.login.activation_required':
-                                raise ActivationRequiredException('Account email not verified.')
-                            error = j['errors'][0]
-                            raise AuthException(error)
-                        except (KeyError, AttributeError, TypeError, IndexError) as e:
-                            raise AuthException('Unable to login or get error information.') from e
+                            qs = parse_qs(urlsplit(resp.headers['Location'])[3])
+                            self._refresh_token = qs['ticket'][0]
+                            self._access_token = resp.cookies['CASTGC'].value
+                        except (KeyError, AttributeError, TypeError, IndexError):
+                            try:
+                                j = await resp.json(encoding='utf-8', loads=json_loads, content_type=None)
+                            except ValueError as e:
+                                raise AuthException('Unable to decode second response.') from e
+                            try:
+                                if j.get('error_code') == 'users.login.activation_required':
+                                    raise ActivationRequiredException('Account email not verified.')
+                                error = j['errors'][0]
+                                raise AuthException(error)
+                            except (KeyError, AttributeError, TypeError, IndexError) as e:
+                                raise AuthException('Unable to login or get error information.') from e
         except (ClientHttpProxyError, ClientProxyConnectionError, SocksError) as e:
             raise ProxyException('Proxy connection error during user_login.') from e
         except ClientResponseError as e:
@@ -113,10 +114,11 @@ class AuthPtc(Auth):
             }
 
             try:
-                async with self.session(connector=self.conn()) as session:
-                    async with session.post('https://sso.pokemon.com/sso/oauth2.0/accessToken', data=data, proxy=self.proxy) as resp:
-                        self._refresh_token = None
-                        qs = await resp.text()
+                with self.conn() as conn:
+                    async with self.session(connector=conn) as session:
+                        async with session.post('https://sso.pokemon.com/sso/oauth2.0/accessToken', data=data, proxy=self.proxy) as resp:
+                            self._refresh_token = None
+                            qs = await resp.text()
             except (ClientHttpProxyError, ClientProxyConnectionError, SocksError) as e:
                 raise ProxyException('Proxy connection error while fetching access token.') from e
             except ClientResponseError as e:
